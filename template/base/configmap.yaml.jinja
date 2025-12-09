@@ -1,0 +1,11 @@
+{% if use_configmap %}apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ project_name }}-config
+  namespace: {{ namespace }}
+data:
+  # Add your configuration key-value pairs
+  APP_ENV: "production"
+  LOG_LEVEL: "info"
+  # DATABASE_HOST: "postgres.database.svc.cluster.local"
+{% endif %}

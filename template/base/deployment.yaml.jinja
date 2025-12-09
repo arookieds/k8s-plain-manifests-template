@@ -1,0 +1,159 @@
+{% if app_type == 'stateless' %}apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ project_name }}
+  namespace: {{ namespace }}
+  labels:
+    app: {{ project_name }}
+spec:
+  replicas: {{ replica_count }}
+  selector:
+    matchLabels:
+      app: {{ project_name }}
+  template:
+    metadata:
+      labels:
+        app: {{ project_name }}
+    spec:
+      containers:
+        - name: {{ project_name }}
+          image: {{ container_image }}
+          ports:
+            - containerPort: {{ container_port }}
+              name: http
+              protocol: TCP
+          resources:
+            limits:
+              cpu: {{ resource_limits_cpu }}
+              memory: {{ resource_limits_memory }}
+            requests:
+              cpu: {{ resource_requests_cpu }}
+              memory: {{ resource_requests_memory }}
+          {% if use_configmap %}
+          envFrom:
+            - configMapRef:
+                name: {{ project_name }}-config
+          {% endif %}
+          {% if use_sealed_secrets %}
+            - secretRef:
+                name: {{ project_name }}-secrets
+          {% endif %}
+          # Uncomment for health checks
+          # livenessProbe:
+          #   httpGet:
+          #     path: /health
+          #     port: http
+          #   initialDelaySeconds: 30
+          #   periodSeconds: 10
+          # readinessProbe:
+          #   httpGet:
+          #     path: /ready
+          #     port: http
+          #   initialDelaySeconds: 5
+          #   periodSeconds: 5
+{% elif app_type == 'stateful' %}apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ project_name }}
+  namespace: {{ namespace }}
+  labels:
+    app: {{ project_name }}
+spec:
+  serviceName: {{ project_name }}
+  replicas: {{ replica_count }}
+  selector:
+    matchLabels:
+      app: {{ project_name }}
+  template:
+    metadata:
+      labels:
+        app: {{ project_name }}
+    spec:
+      containers:
+        - name: {{ project_name }}
+          image: {{ container_image }}
+          ports:
+            - containerPort: {{ container_port }}
+              name: http
+          resources:
+            limits:
+              cpu: {{ resource_limits_cpu }}
+              memory: {{ resource_limits_memory }}
+            requests:
+              cpu: {{ resource_requests_cpu }}
+              memory: {{ resource_requests_memory }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          {% if use_configmap %}
+          envFrom:
+            - configMapRef:
+                name: {{ project_name }}-config
+          {% endif %}
+          {% if use_sealed_secrets %}
+            - secretRef:
+                name: {{ project_name }}-secrets
+          {% endif %}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: {{ storage_class }}
+        resources:
+          requests:
+            storage: {{ pvc_size }}
+{% elif app_type == 'daemon' %}apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ project_name }}
+  namespace: {{ namespace }}
+  labels:
+    app: {{ project_name }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ project_name }}
+  template:
+    metadata:
+      labels:
+        app: {{ project_name }}
+    spec:
+      containers:
+        - name: {{ project_name }}
+          image: {{ container_image }}
+          ports:
+            - containerPort: {{ container_port }}
+              name: http
+          resources:
+            limits:
+              cpu: {{ resource_limits_cpu }}
+              memory: {{ resource_limits_memory }}
+            requests:
+              cpu: {{ resource_requests_cpu }}
+              memory: {{ resource_requests_memory }}
+{% elif app_type == 'job' %}apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ project_name }}
+  namespace: {{ namespace }}
+  labels:
+    app: {{ project_name }}
+spec:
+  template:
+    metadata:
+      labels:
+        app: {{ project_name }}
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: {{ project_name }}
+          image: {{ container_image }}
+          resources:
+            limits:
+              cpu: {{ resource_limits_cpu }}
+              memory: {{ resource_limits_memory }}
+            requests:
+              cpu: {{ resource_requests_cpu }}
+              memory: {{ resource_requests_memory }}
+{% endif %}

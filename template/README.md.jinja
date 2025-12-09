@@ -1,0 +1,100 @@
+# {{ project_name }}
+
+{{ project_description }}
+
+## Overview
+
+Kubernetes deployment using plain manifests with Kustomize.
+
+## Structure
+
+```
+.
+├── base/
+│   ├── deployment.yaml              # {{ app_type | capitalize }} workload
+│   {% if service_type != 'None' %}├── service.yaml                 # Service{% endif %}
+│   {% if use_configmap %}├── configmap.yaml               # Configuration{% endif %}
+│   {% if use_sealed_secrets %}├── sealed-secret.yaml          # Sealed secrets{% endif %}
+│   {% if enable_ingress %}├── ingress.yaml                # Ingress{% endif %}
+│   └── kustomization.yaml          # Base configuration
+{% if create_environments %}└── overlays/
+    ├── dev/                        # Development
+    ├── staging/                    # Staging
+    └── prod/                       # Production{% endif %}
+```
+
+## Prerequisites
+
+- kubectl >= 1.14
+- kustomize >= 3.0{% if use_sealed_secrets %}
+- kubeseal (for sealed secrets){% endif %}
+
+## Deployment
+
+```bash
+# Deploy base
+kubectl apply -k base/
+{% if create_environments %}
+# Deploy to environment
+kubectl apply -k overlays/dev/
+kubectl apply -k overlays/staging/
+kubectl apply -k overlays/prod/
+{% endif %}
+```
+
+## Configuration
+
+### Modify Resources
+
+Edit files in `base/` directory:
+
+- `deployment.yaml`: Container image, resources, env vars
+{% if service_type != 'None' %}- `service.yaml`: Service ports, type{% endif %}
+{% if use_configmap %}- `configmap.yaml`: Application configuration{% endif %}
+
+### Environment Overlays
+
+Customize per environment in `overlays/`:
+
+```yaml
+# overlays/prod/kustomization.yaml
+patches:
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 5
+    target:
+      kind: {% if app_type == 'stateless' %}Deployment{% elif app_type == 'stateful' %}StatefulSet{% elif app_type == 'daemon' %}DaemonSet{% else %}Job{% endif %}
+```
+{% if use_sealed_secrets %}
+## Sealed Secrets
+
+Generate sealed secrets:
+
+```bash
+kubectl create secret generic {{ project_name }}-secrets \
+  --from-literal=KEY=VALUE \
+  --dry-run=client -o yaml | \
+  kubeseal -o yaml > base/sealed-secret.yaml
+```
+{% endif %}
+## Troubleshooting
+
+### View manifests
+
+```bash
+kubectl kustomize base/
+# or
+kustomize build base/
+```
+
+### Check resources
+
+```bash
+kubectl get all -n {{ namespace }} -l app={{ project_name }}
+```
+
+## Resources
+
+- [Kustomize Documentation](https://kubectl.docs.kubernetes.io/references/kustomize/)
+- [Kubernetes Documentation](https://kubernetes.io/docs/)

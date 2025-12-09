@@ -1,0 +1,23 @@
+{% if create_environments %}apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: {{ namespace }}-dev
+
+resources:
+  - ../../base
+
+namePrefix: dev-
+
+commonLabels:
+  environment: dev
+
+{% if app_type in ['stateless', 'stateful'] %}
+patches:
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+    target:
+      kind: {% if app_type == 'stateless' %}Deployment{% else %}StatefulSet{% endif %}
+{% endif %}
+{% endif %}
